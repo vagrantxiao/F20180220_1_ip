@@ -1442,16 +1442,18 @@ endmodule
 `define PI_SWITCH
 
 module pi_arbiter(
+	input clk,
+	input reset,
     input [1:0] d_l,
     input [1:0] d_r,
     input [1:0] d_ul,
     input [1:0] d_ur,
     input random,
-    output reg rand_gen,
-    output reg [1:0] sel_l,
-    output reg [1:0] sel_r,
-    output [1:0] sel_ul,
-    output [1:0] sel_ur
+    output reg rand_gen_p,
+    output reg [1:0] sel_l_p,
+    output reg [1:0] sel_r_p,
+    output reg [1:0] sel_ul_p,
+    output reg [1:0] sel_ur_p
     );
     
     parameter level= 1;
@@ -1466,7 +1468,32 @@ module pi_arbiter(
 
     reg [1:0] sel_u1;
     reg [1:0] sel_u2;
-
+	reg rand_gen;
+	reg [1:0] sel_l;
+    reg [1:0] sel_r;
+    wire[1:0] sel_ul;
+    wire [1:0] sel_ur;
+	
+always@(posedge clk or posedge reset)begin
+	if(reset)
+	begin	
+		rand_gen_p <= 0;
+		sel_l_p <=0;
+		sel_r_p <=0;
+		sel_ul_p <=0;
+		sel_ur_p <=0;
+	end
+	else
+	begin
+		rand_gen_p <= rand_gen;
+		sel_l_p <=sel_l;
+		sel_r_p <=sel_r;
+		sel_ul_p <=sel_ul;
+		sel_ur_p <=sel_ur;
+	end
+end
+		
+	
     assign sel_ul= random ? sel_u1 : sel_u2;
     assign sel_ur= random ? sel_u2 : sel_u1;
 
@@ -1798,15 +1825,21 @@ module pi_switch (
     reg random;
     wire rand_gen;
 
-        wire [p_sz-1:0] l_bus_i_p0;
+    wire [p_sz-1:0] l_bus_i_p0;
     wire [p_sz-1:0] r_bus_i_p0;
     wire [p_sz-1:0] ul_bus_i_p0;
     wire [p_sz-1:0] ur_bus_i_p0;
 
-        wire [p_sz-1:0] l_bus_i_p1;
+    wire [p_sz-1:0] l_bus_i_p1;
     wire [p_sz-1:0] r_bus_i_p1;
     wire [p_sz-1:0] ul_bus_i_p1;
     wire [p_sz-1:0] ur_bus_i_p1;
+	
+	wire [p_sz-1:0] l_bus_i_p2;
+    wire [p_sz-1:0] r_bus_i_p2;
+    wire [p_sz-1:0] ul_bus_i_p2;
+    wire [p_sz-1:0] ur_bus_i_p2;
+
 
     pipe_ff #(
         .data_width(p_sz)
@@ -1865,6 +1898,39 @@ module pi_switch (
         .clk(clk),
         .din(ur_bus_i_p0),
         .dout(ur_bus_i_p1));
+
+		
+		
+    pipe_ff #(
+        .data_width(p_sz)
+        )pipe_ff_inst_l_bus_i_p2(
+        .clk(clk),
+        .din(l_bus_i_p1),
+        .dout(l_bus_i_p2));
+
+    pipe_ff #(
+        .data_width(p_sz)
+        )pipe_ff_inst_r_bus_i_p2(
+        .clk(clk),
+        .din(r_bus_i_p1),
+        .dout(r_bus_i_p2));
+
+    pipe_ff #(
+        .data_width(p_sz)
+        )pipe_ff_inst_ul_bus_i_p2(
+        .clk(clk),
+        .din(ul_bus_i_p1),
+        .dout(ul_bus_i_p2));
+
+    pipe_ff #(
+        .data_width(p_sz)
+        )pipe_ff_inst_ur_bus_i_p2(
+        .clk(clk),
+        .din(ur_bus_i_p1),
+        .dout(ur_bus_i_p2));
+		
+		
+		
 
 
     pipe_ff #(
@@ -1966,47 +2032,49 @@ module pi_switch (
     pi_arbiter #(
                 .level(level))
                 pi_a(
+					.clk(clk),
+					.reset(reset),
                     .d_l(d_l_p0),
                     .d_r(d_r_p0),
                        .d_ul(d_ul_p0),
                        .d_ur(d_ur_p0),
-                       .sel_l(sel_l),
-                       .sel_r(sel_r),
-                       .sel_ul(sel_ul),
-                       .sel_ur(sel_ur),
+                       .sel_l_p(sel_l),
+                       .sel_r_p(sel_r),
+                       .sel_ul_p(sel_ul),
+                       .sel_ur_p(sel_ur),
                     .random(random),
-                    .rand_gen(rand_gen));
+                    .rand_gen_p(rand_gen));
 
     always @(posedge clk)
         if (reset)
             {l_bus_o, r_bus_o, ul_bus_o, ur_bus_o} <= 0;
         else begin
             case (sel_l_p0)
-                `LEFT: l_bus_o<= l_bus_i_p1;
-                `RIGHT: l_bus_o<= r_bus_i_p1;
-                `UPL: l_bus_o<= ul_bus_i_p1;
-                `UPR: l_bus_o<= ur_bus_i_p1;
+                `LEFT: l_bus_o<= l_bus_i_p2;
+                `RIGHT: l_bus_o<= r_bus_i_p2;
+                `UPL: l_bus_o<= ul_bus_i_p2;
+                `UPR: l_bus_o<= ur_bus_i_p2;
             endcase
         
             case (sel_r_p0)
-                `LEFT: r_bus_o<= l_bus_i_p1;
-                `RIGHT: r_bus_o<= r_bus_i_p1;
-                `UPL: r_bus_o<= ul_bus_i_p1;
-                `UPR: r_bus_o<= ur_bus_i_p1;
+                `LEFT: r_bus_o<= l_bus_i_p2;
+                `RIGHT: r_bus_o<= r_bus_i_p2;
+                `UPL: r_bus_o<= ul_bus_i_p2;
+                `UPR: r_bus_o<= ur_bus_i_p2;
             endcase
             
             case (sel_ul_p0)
-                `LEFT: ul_bus_o <= l_bus_i_p1;
-                `RIGHT: ul_bus_o <= r_bus_i_p1;
-                `UPL: ul_bus_o <= ul_bus_i_p1;
-                `UPR: ul_bus_o <= ur_bus_i_p1;
+                `LEFT: ul_bus_o <= l_bus_i_p2;
+                `RIGHT: ul_bus_o <= r_bus_i_p2;
+                `UPL: ul_bus_o <= ul_bus_i_p2;
+                `UPR: ul_bus_o <= ur_bus_i_p2;
             endcase
 
             case (sel_ur_p0)
-                `LEFT: ur_bus_o <= l_bus_i_p1;
-                `RIGHT: ur_bus_o <= r_bus_i_p1;
-                `UPL: ur_bus_o <= ul_bus_i_p1;
-                `UPR: ur_bus_o <= ur_bus_i_p1;
+                `LEFT: ur_bus_o <= l_bus_i_p2;
+                `RIGHT: ur_bus_o <= r_bus_i_p2;
+                `UPL: ur_bus_o <= ul_bus_i_p2;
+                `UPR: ur_bus_o <= ur_bus_i_p2;
             endcase
 
         end
